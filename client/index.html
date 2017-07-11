@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Todo Fancy Sidik Happy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.4.3/css/bulma.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  </head>
+  <body>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/vue"></script>
+    <div id="app">
+      <start-page :islogin="islogin"
+      :login-data="loginData"
+      :curr-user="currUser"
+      :sign-up-data="signUpData"
+      @login-go-go="loginGoGo"
+      @signup-go-go="signUpGoGo" v-if="islogin==false"></start-page>
+      <home-page :islogin="islogin"
+      :login-data="loginData"
+      :curr-user="currUser"
+      :list-todo="listTodo"
+      :new-todo="newTodo"
+      :stylenya="stylenya"
+      @create-new="createNew"
+      @close-create-new="closeCreateNew"
+      @get-todo="getToDo"
+      @logout-go-go="logoutGoGo" v-else-if="islogin == true"></home-page>
+    </div>
+    <br>
+    <script src="components.js"></script>
+    <script>
+      var app = new Vue({
+        el: '#app',
+        data: {
+          islogin: false,
+          currUser: "",
+          loginData: {
+            username: "",
+            password: ""
+          },
+          signUpData: {
+            name: "",
+            username: "",
+            password: ""
+          },
+          listTodo: [],
+          stylenya: {
+            newTodo: {
+              display: "none"
+            },
+            createNewButton: {
+              display: "block",
+              "margin-left": "30px",
+              "margin-top": "30px",
+              "margin-bottom": "-30px"
+            },
+            editTodo: {
+              display: "none"
+            }
+          },
+          newTodo: {
+            _id: "",
+            title: "",
+            desc: "",
+            isDone: "",
+            doneTarget: null
+          }
+        },
+        methods: {
+          loginGoGo: function() {
+            if (this.loginData.username == "" || this.loginData.password == "") {
+              alert("please fill username and password to login")
+            } else {
+              let self = this
+              axios.post(`http://localhost:3000/users/login`, {
+                username: self.loginData.username,
+                password: self.loginData.password
+              })
+              .then(function(response) {
+                if (response.data == "failUsername") {
+                  alert("Username didn't exist")
+                } else if (response.data == "failPassword") {
+                  alert("Wrong password!!")
+                } else {
+                  self.loginData.username = ""
+                  self.loginData.password = ""
+                  self.islogin = true
+                  self.currUser = response.data.name
+                  localStorage.setItem("token", response.data.token)
+                  self.getToDo()
+                }
+              })
+            }
+          },
+          checkLogin: function() {
+            if (localStorage.token) {
+              let self = this
+              axios.post('http://localhost:3000/users/verify-token', {
+                token: localStorage.token
+              })
+              .then( function(response) {
+                self.islogin = true
+                self.currUser = response.data.name
+                self.getToDo()
+              })
+              .catch( function(err) {
+                console.log(err);
+              })
+            } else {
+
+            }
+          },
+          logoutGoGo: function() {
+            this.islogin = false
+            localStorage.clear()
+            this.currUser = ""
+          },
+          signUpGoGo: function() {
+            let self = this
+            if (this.signUpData.name == "" || this.signUpData.username == "" || this.signUpData.password == "" ) {
+              alert("please fill all the fields before sign up")
+            } else if (this.signUpData.username.includes(" ")) {
+              alert("username cannot contain spaces")
+            } else {
+              axios.post('http://localhost:3000/users', self.signUpData)
+              .then(function(response) {
+                if (response.data == "failUsername") {
+                  alert("That username already exist")
+                } else {
+                  alert("New user created!!\n\nPlease log in to continue")
+                  self.signUpData.name = ""
+                  self.signUpData.username = ""
+                  self.signUpData.password = ""
+                }
+              })
+            }
+          },
+          getToDo: function() {
+            let self = this
+            axios.post(`http://localhost:3000/users/verify-token`, {
+              token: localStorage.token
+            })
+            .then(function(response) {
+              axios.get(`http://localhost:3000/todos/user/${response.data.userId}`)
+              .then(function(rezponse) {
+                // self.listTodo = rezponse.data
+                self.listTodo = rezponse.data.map(x => {
+                  let tanggaDiBuat = new Date(x.createdAt)
+                  let tanggaTargetSelesai = new Date(x.doneTarget)
+                  x.createdAt = tanggaDiBuat.toString()
+                  x.doneTarget = tanggaTargetSelesai.toString()
+                  return x
+                })
+              })
+              .catch(function(err2) {
+                console.log(err2);
+              })
+            })
+            .catch(function(err) {
+              console.log(err);
+            })
+          },
+          getDatenya: function() {
+            this.newTodo.doneTarget = new Date().toString()
+          },
+          createNew: function() {
+            this.stylenya.newTodo.display = "block"
+            this.stylenya.createNewButton.display = "none"
+            this.getDatenya()
+          },
+          closeCreateNew: function() {
+            this.stylenya.newTodo.display = "none"
+            this.stylenya.createNewButton.display = "block"
+            this.newTodo.title = ""
+            this.newTodo.desc = ""
+          }
+        },
+        mounted: function() {
+          this.checkLogin()
+        }
+      })
+    </script>
+  </body>
+</html>
